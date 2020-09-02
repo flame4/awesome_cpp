@@ -1,0 +1,10 @@
+# 新环境安装 vcpkg 后需要安装的包命令.
+
+# mac 下遇到的安装 vcpkg 问题
+# 1. ninja 版本不对: https://github.com/microsoft/vcpkg/issues/10890，ninja 软链接换成本地的版本
+# 2. gcc 版本提示 https://github.com/microsoft/vcpkg/issues/8490  改了一个 diff 加了 g++10
+# 3. add path.
+
+vcpkg install glog
+vcpkg install gflags
+vcpkg install folly
