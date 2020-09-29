@@ -1,1 +1,2 @@
 add_executable(template_function_overloading template_function_overloading.cc)
+add_executable(template_spec template_spec.cc)
