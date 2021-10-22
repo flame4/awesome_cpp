@@ -1,1 +1,7 @@
-
+*.o
+*.dwo
+*.mod*
+*.ko
+*.cmd
+Module*
+module*
