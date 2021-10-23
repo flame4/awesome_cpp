@@ -11,7 +11,8 @@
 #define DEVICE_NAME "datenlord4"
 #define DEVICE_FILE_NAME "datenlord4"
 
-static DEFINE_MUTEX(mymutex);
+static DEFINE_MUTEX(read_mutex);
+static DEFINE_MUTEX(write_mutex);
 
 static int dev_open(struct inode*, struct file*);
 static int dev_release(struct inode*, struct file*);
@@ -66,11 +67,11 @@ static int dev_release(struct inode* inodep, struct file* filep) {
 }
 
 static ssize_t dev_write(struct file* filep, const char* buffer, size_t len, loff_t* offset) {
-  int ret = mutex_lock_interruptible(&mymutex);
+  int ret = mutex_lock_interruptible(&write_mutex);
   // receive kill signal
   printk("write inside\n");
   if (ret == -EINTR) {
-    mutex_unlock(&mymutex);
+    mutex_unlock(&write_mutex);
     return -EINTR;
   }
   printk(KERN_INFO "datenlord write(%s, %ld)\n", buffer, len);
@@ -83,16 +84,16 @@ static ssize_t dev_write(struct file* filep, const char* buffer, size_t len, lof
   // then put rest data to buffer head.
   memmove(msg, buffer + p1_len, len - p1_len);
   msg_end += len;
-  mutex_unlock(&mymutex);
+  mutex_unlock(&write_mutex);
   return len;
 }
 
 static ssize_t dev_read(struct file* filep, char* buffer, size_t len, loff_t* offset) {
-  int ret = mutex_lock_interruptible(&mymutex);
+  int ret = mutex_lock_interruptible(&read_mutex);
   printk("read inside\n");
   // mutex not get, but kill signal received.
   if (ret == -EINTR) {
-    mutex_unlock(&mymutex);
+    mutex_unlock(&read_mutex);
     // just return 0 to stop this read.
     return -EINTR;
   }
@@ -103,7 +104,7 @@ static ssize_t dev_read(struct file* filep, char* buffer, size_t len, loff_t* of
   memmove(buffer, msg + (msg_begin & (MAX_LEN-1)), p1_len);
   memmove(buffer + p1_len, msg, len - p1_len);
   msg_begin += len;
-  mutex_unlock(&mymutex);
+  mutex_unlock(&read_mutex);
   return len;
 }
 
