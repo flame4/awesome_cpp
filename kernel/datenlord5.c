@@ -94,7 +94,7 @@ static ssize_t dev_write(struct file* filep, const char* buffer, size_t len, lof
   // then put rest data to buffer head.
   memmove(msg, buffer + p1_len, len - p1_len);
   msg_end += len;
-  mutex_unlock(&write_mutex);
+  atomic_set(&already_write, 0);
   wake_up(&reader_q);
   return len;
 }
