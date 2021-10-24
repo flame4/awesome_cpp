@@ -100,25 +100,23 @@ static ssize_t dev_write(struct file* filep, const char* buffer, size_t len, lof
   return len;
 }
 
+static atomic_t already_read = ATOMIC_INIT(0);
+
 static ssize_t dev_read(struct file* filep, char* buffer, size_t len, loff_t* offset) {
   while (true) {
-    int ret = mutex_lock_interruptible(&read_mutex);
+    int status = atomic_cmpxchg(&already_read, 0, 1);
     printk("read inside\n");
-    // mutex not get, but kill signal received.
-    if (ret == -EINTR) {
-      mutex_unlock(&read_mutex);
-      // just return 0 to stop this read.
-      return -EINTR;
+    if (status == 0) {
+      // this process get lock.
+      // some data need to read, go ahead.
+      if (msg_end > msg_begin) { break; }
+      // no data, just hang up.
+      atomic_set(&already_read, 0);
     }
-    // if no data, put self into wait_q
-    // else just read.
-    if (msg_end > msg_begin) { break; }
-    mutex_unlock(&read_mutex);
-    ret = wait_event_interruptible(reader_q, true);
-    // wake up by signal.
+    int ret = wait_event_interruptible(reader_q, !atomic_read(&already_read) && (msg_end > msg_begin));
     if (ret == -ERESTARTSYS) { return -EINTR; }
   }
-  printk("read inside\n");
+  printk("read inside done\n");
   len = min(len, msg_end - msg_begin);
   // first copy msg_end to buffer end.
   int p1_len = min(len, MAX_LEN - (msg_begin & (MAX_LEN-1)));
@@ -126,7 +124,7 @@ static ssize_t dev_read(struct file* filep, char* buffer, size_t len, loff_t* of
   memmove(buffer, msg + (msg_begin & (MAX_LEN-1)), p1_len);
   memmove(buffer + p1_len, msg, len - p1_len);
   msg_begin += len;
-  mutex_unlock(&read_mutex);
+  atomic_set(&already_read, 0);
   wake_up(&writer_q);
   return len;
 }
