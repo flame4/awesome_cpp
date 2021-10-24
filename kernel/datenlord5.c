@@ -69,19 +69,18 @@ static int dev_release(struct inode* inodep, struct file* filep) {
   return 0;
 }
 
+static atomic_t already_write = ATOMIC_INIT(0);
 static ssize_t dev_write(struct file* filep, const char* buffer, size_t len, loff_t* offset) {
   while (true) {
-    int ret = mutex_lock_interruptible(&write_mutex);
-    if (ret == -EINTR) {
-      mutex_unlock(&write_mutex);
-      return -EINTR;
+    int status = atomic_cmpxchg(&already_write, 0, 1);
+    printk("write inside\n");
+    if (status == 0) {
+      // this process get lock.
+      // some data need to write, go ahead
+      if (MAX_LEN - msg_end + msg_begin >= len) { break; }
+      atomic_set(&already_write, 0);
     }
-    // check whether buffer is full.
-    // if not, just write data.
-    // else, release lock and put self into wait_q
-    if (MAX_LEN - msg_end + msg_begin >= len) { break; }
-    mutex_unlock(&write_mutex);
-    ret = wait_event_interruptible(writer_q, true);
+    int ret = wait_event_interruptible(writer_q, !atomic_read(&already_write) && (MAX_LEN - msg_end + msg_begin >= len));
     // wake up by signal.
     if (ret == -ERESTARTSYS) { return -EINTR; }
   }
