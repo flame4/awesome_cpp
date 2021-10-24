@@ -95,6 +95,10 @@ static ssize_t dev_write(struct file* filep, const char* buffer, size_t len, lof
   memmove(msg, buffer + p1_len, len - p1_len);
   msg_end += len;
   atomic_set(&already_write, 0);
+  // different with read.
+  // maybe only many writer, no reader.
+  // In this case, one writer finished its job should also wake up other writer
+  wake_up(&writer_q);
   wake_up(&reader_q);
   return len;
 }
